@@ -1,5 +1,9 @@
 
 import * as React from 'react';
+import uuid from 'uuid';
+import cookies from 'js-cookie';
+
+const COOKIE_ID = 'partyyy-ppl-id';
 
 export default class App extends React.Component {
 
@@ -10,9 +14,11 @@ export default class App extends React.Component {
     this.state = {
       config: null,
       serverConnected: false,
-      serverMessages: []
+      serverMessages: [],
+      name: ''
     };
 
+    this.id = this.getCookieId();
     this.loadConfig(`config.json`);
 
   }
@@ -20,6 +26,34 @@ export default class App extends React.Component {
   onConfigLoad = (config) => {
 
     this.setState({ config });
+
+  }
+  onServerMsg = (message) => {
+
+    const data = JSON.parse(message);
+
+    switch (data.type) {
+
+      case 'ppl':
+        this.setState({
+          name: data.name
+        })
+        break;
+
+    }
+
+  }
+
+  getCookieId() {
+
+    let val = cookies.get(COOKIE_ID);
+
+    if (!val) {
+      val = uuid.v4();
+      cookies.set(COOKIE_ID, val);
+    }
+
+    return val;
 
   }
 
@@ -39,38 +73,32 @@ export default class App extends React.Component {
     const ws = new WebSocket(url);
 
     ws.onopen = () => {
-      this.setState({
-        serverConnected: true
+      this.setState({ serverConnected: true });
+
+      this.sendToServer({
+        type: 'identify',
+        group: 'ppl',
+        id: this.id
       })
+
     }
     ws.onclose = () => {
-      this.setState({
-        serverConnected: false
-      })
+      this.setState({ serverConnected: false });
     }
     ws.onerror = () => {
-      this.setState({
-        serverConnected: false
-      })
+      this.setState({ serverConnected: false });
     }
-    ws.onmessage = ({ data }) => {
-      this.setState({
-        serverMessages: [
-          ...this.state.serverMessages,
-          data
-        ]
-      })
-    }
+    ws.onmessage = ({ data }) => this.onServerMsg(data);
 
     this.socket = ws;
 
   }
 
-  sendMessageToServer() {
+  sendToServer(data) {
 
     if (!this.socket) return;
 
-    this.socket.send('Hello from PARTYYY PPL')
+    this.socket.send(JSON.stringify(data));
 
   }
 
@@ -89,18 +117,37 @@ export default class App extends React.Component {
           ))}
           </ul>
         )}
-        {this.state.serverConnected && (
-          <button
-            onClick={() => this.sendMessageToServer() }>
-            Send message
-          </button>
-        )}
 
         {!this.state.serverConnected && (
           <button
             onClick={() => this.connectToServer(this.state.config.serverUrl)}>
             Connect to Server
           </button>
+        )}
+
+        {this.state.serverConnected && (
+          <>
+            <input
+              type='text'
+              value={this.state.name}
+              onChange={(e) => {
+                this.setState({
+                  name: e.target.value
+                })
+              }} />
+              <button
+                onClick={() => {
+                  this.sendToServer({
+                    type: 'updatePpl',
+                    ppl: {
+                      name: this.state.name
+                    }
+                  })
+                }}>
+                Update Name
+              </button>
+          </>
+
         )}
 
       </main>
