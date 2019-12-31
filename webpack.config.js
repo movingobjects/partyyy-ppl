@@ -156,6 +156,10 @@ module.exports = {
   plugins: [
     new CopyWebpackPlugin([
       {
+        from: `src/include`,
+        to: '.'
+      },
+      {
         from: `node_modules/react/umd/react.${isDev ? 'development' : 'production.min'}.js`,
         to: './resources/externals/react/'
       },
